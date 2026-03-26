@@ -17,6 +17,7 @@ type TabMode = "view" | "edit" | "compare";
 interface UploadedDoc {
   file: File;
   url: string;
+  uploadedAt: number;
 }
 
 interface OnlyOfficeEditorExpose {
@@ -35,6 +36,7 @@ const compareRevisedDoc = ref<UploadedDoc | null>(null);
 
 const compareEditorRef = ref<OnlyOfficeEditorExpose | null>(null);
 const compareEditorReady = ref(false);
+const lastComparedBaseUploadedAt = ref<number | null>(null);
 
 const communityCompareNotice =
   "OnlyOffice 社区版通常不包含文档比较授权（该能力主要在企业版/开发者版）。本 demo 已按官方 API 方式接入，如果无授权会在编辑器内提示失败。";
@@ -43,8 +45,18 @@ const canStartCompare = computed(
   () =>
     !!compareBaseDoc.value &&
     !!compareRevisedDoc.value &&
-    compareEditorReady.value,
+    compareEditorReady.value &&
+    lastComparedBaseUploadedAt.value !== compareBaseDoc.value.uploadedAt,
 );
+
+const compareButtonText = computed(() => {
+  if (!compareBaseDoc.value || !compareRevisedDoc.value) return "请先上传两个文档";
+  if (!compareEditorReady.value) return "编辑器加载中...";
+  if (lastComparedBaseUploadedAt.value === compareBaseDoc.value.uploadedAt) {
+    return "已比较，请重传基准文档";
+  }
+  return "开始比较";
+});
 
 const toAbsoluteUrl = (path: string) => `${window.location.origin}${path}`;
 const createVirtualFile = (name: string) => new File([], name);
@@ -77,7 +89,7 @@ const uploadByInputEvent = async (
   try {
     const url = await uploadFile(file);
     logger.log("文件上传完成:", file.name, url);
-    return { file, url };
+    return { file, url, uploadedAt: Date.now() };
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "文件上传失败";
@@ -108,6 +120,8 @@ const onCompareBaseChange = async (event: Event) => {
   if (!uploaded) return;
 
   compareBaseDoc.value = uploaded;
+  lastComparedBaseUploadedAt.value = null;
+  compareEditorReady.value = false;
   statusMessage.value = `已加载基准文档：${uploaded.file.name}`;
 };
 
@@ -116,6 +130,7 @@ const onCompareRevisedChange = async (event: Event) => {
   if (!uploaded) return;
 
   compareRevisedDoc.value = uploaded;
+  compareEditorReady.value = false;
   statusMessage.value = `已加载对比文档：${uploaded.file.name}`;
 };
 
@@ -123,6 +138,7 @@ const loadViewSample = () => {
   viewDoc.value = {
     file: createVirtualFile("demo.docx"),
     url: "https://static.onlyoffice.com/assets/docs/samples/demo.docx",
+    uploadedAt: Date.now(),
   };
   statusMessage.value = "已加载 OnlyOffice 官方公开示例文档";
 };
@@ -131,13 +147,17 @@ const loadCompareSample = () => {
   compareBaseDoc.value = {
     file: createVirtualFile("old.docx"),
     url: toAbsoluteUrl("/temp/old.docx"),
+    uploadedAt: Date.now(),
   };
 
   compareRevisedDoc.value = {
     file: createVirtualFile("new.docx"),
     url: toAbsoluteUrl("/temp/new.docx"),
+    uploadedAt: Date.now(),
   };
 
+  lastComparedBaseUploadedAt.value = null;
+  compareEditorReady.value = false;
   statusMessage.value = "已加载本地示例 old.docx / new.docx";
 };
 
@@ -156,11 +176,19 @@ const startCompare = () => {
     return;
   }
 
-  const ok = compareEditorRef.value?.startCompare();
-  console.log(compareEditorRef.value, "data----compareEditorRef.value");
-  if (ok) {
+  if (lastComparedBaseUploadedAt.value === compareBaseDoc.value.uploadedAt) {
     errorMessage.value = "";
-    statusMessage.value = "已调用文档比较 API，请在编辑器中查看结果";
+    statusMessage.value =
+      "当前基准文档已经比较过。如需再次比较，请重新上传基准文档。";
+    return;
+  }
+
+  const ok = compareEditorRef.value?.startCompare();
+  if (ok) {
+    lastComparedBaseUploadedAt.value = compareBaseDoc.value.uploadedAt;
+    errorMessage.value = "";
+    statusMessage.value =
+      "已触发文档比较。当前基准文档已锁定，重新上传基准文档后可再次比较。";
   }
 };
 
@@ -238,7 +266,7 @@ const onEditorError = (message: string) => {
           />
         </label>
         <button :disabled="!canStartCompare" @click="startCompare">
-          开始比较
+          {{ compareButtonText }}
         </button>
       </div>
     </section>

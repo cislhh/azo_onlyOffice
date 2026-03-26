@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { DocumentEditor } from '@onlyoffice/document-editor-vue'
-import type { OnlyOfficeConfig, ComponentErrorEvent } from '@/types/onlyoffice'
+import type { OnlyOfficeConfig, ComponentErrorEvent, OnlyOfficeUiTheme } from '@/types/onlyoffice'
 import { getFileType, getDocumentType, generateKey } from '@/utils/fileHelper'
 import { logger } from '@/utils/logger'
 
@@ -10,6 +10,7 @@ interface Props {
   fileUrl?: string
   file?: File
   mode: 'view' | 'edit' | 'compare'
+  uiTheme?: OnlyOfficeUiTheme
   editorId?: string
   revisedFileUrl?: string
   revisedFile?: File
@@ -115,7 +116,10 @@ const config = computed<OnlyOfficeConfig | null>(() => {
     editorConfig: {
       mode: isEditMode ? 'edit' : 'view',
       callbackUrl: props.mode === 'edit' ? '' : undefined,
-      lang: 'zh-CN'
+      lang: 'zh-CN',
+      customization: {
+        uiTheme: props.uiTheme || 'theme-light'
+      }
     }
   }
 })

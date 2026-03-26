@@ -13,6 +13,7 @@ if (!DOCUMENT_SERVER_URL) {
 }
 
 type TabMode = "view" | "edit" | "compare";
+type UiTheme = "theme-light" | "theme-dark";
 
 interface UploadedDoc {
   file: File;
@@ -26,6 +27,7 @@ interface OnlyOfficeEditorExpose {
 }
 
 const activeTab = ref<TabMode>("view");
+const uiTheme = ref<UiTheme>("theme-light");
 const isUploading = ref(false);
 const errorMessage = ref("");
 const statusMessage = ref("");
@@ -69,6 +71,16 @@ const setTab = (tab: TabMode) => {
   errorMessage.value = "";
   statusMessage.value = "";
   if (tab !== "compare") {
+    compareEditorReady.value = false;
+  }
+};
+
+const setUiTheme = (theme: UiTheme) => {
+  if (uiTheme.value === theme) return;
+  uiTheme.value = theme;
+
+  // 主题切换会触发编辑器重建，先重置 compare 状态避免误操作
+  if (activeTab.value === "compare") {
     compareEditorReady.value = false;
   }
 };
@@ -269,6 +281,24 @@ const onStampImageChange = async (event: Event) => {
           </div>
         </div>
         <div class="header-right">
+          <div class="theme-switch" role="group" aria-label="编辑器主题切换">
+            <button
+              type="button"
+              class="theme-button"
+              :class="{ active: uiTheme === 'theme-light' }"
+              @click="setUiTheme('theme-light')"
+            >
+              浅色
+            </button>
+            <button
+              type="button"
+              class="theme-button"
+              :class="{ active: uiTheme === 'theme-dark' }"
+              @click="setUiTheme('theme-dark')"
+            >
+              深色
+            </button>
+          </div>
           <span v-if="isUploading" class="status-text uploading"
             >上传中...</span
           >
@@ -588,6 +618,7 @@ const onStampImageChange = async (event: Event) => {
               :documentServerUrl="DOCUMENT_SERVER_URL"
               :file-url="viewDoc.url"
               :file="viewDoc.file"
+              :ui-theme="uiTheme"
               mode="view"
               :is-public-url="viewDoc.url.startsWith('https://')"
               @error="onEditorError"
@@ -620,6 +651,7 @@ const onStampImageChange = async (event: Event) => {
               :documentServerUrl="DOCUMENT_SERVER_URL"
               :file-url="editDoc.url"
               :file="editDoc.file"
+              :ui-theme="uiTheme"
               mode="edit"
               @error="onEditorError"
             />
@@ -651,6 +683,7 @@ const onStampImageChange = async (event: Event) => {
               :documentServerUrl="DOCUMENT_SERVER_URL"
               :file-url="compareBaseDoc.url"
               :file="compareBaseDoc.file"
+              :ui-theme="uiTheme"
               :revised-file-url="compareRevisedDoc.url"
               :revised-file="compareRevisedDoc.file"
               mode="compare"
@@ -752,6 +785,43 @@ const onStampImageChange = async (event: Event) => {
 .header-right {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background-color: #0f172a;
+}
+
+.theme-button {
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-button:hover {
+  color: #f8fafc;
+}
+
+.theme-button.active {
+  background-color: #22c55e;
+  color: #052e16;
+}
+
+.theme-button:focus-visible {
+  outline: 2px solid #22c55e;
+  outline-offset: 1px;
 }
 
 .status-text {
@@ -1057,6 +1127,10 @@ const onStampImageChange = async (event: Event) => {
   .header-content {
     padding: 0 12px;
     height: 56px;
+  }
+
+  .theme-button {
+    padding: 6px 10px;
   }
 
   .logo-icon {

@@ -1,3 +1,13 @@
+export type OnlyOfficeUiTheme =
+  | 'theme-light'
+  | 'theme-dark'
+  | 'theme-classic-light'
+  | 'theme-contrast-dark'
+  | 'theme-white'
+  | 'theme-night'
+  | 'default-light'
+  | 'default-dark'
+
 export interface OnlyOfficeConfig {
   document: {
     fileType: string
@@ -16,6 +26,9 @@ export interface OnlyOfficeConfig {
     mode: 'edit' | 'view' | 'review'
     callbackUrl?: string  // 可选，编辑模式需要
     lang: string
+    customization?: {
+      uiTheme?: OnlyOfficeUiTheme
+    }
     user?: {
       id: string
       name: string

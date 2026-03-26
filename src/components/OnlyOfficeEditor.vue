@@ -24,9 +24,19 @@ interface CompareRequestPayload {
   url: string
 }
 
+interface InsertImagePayload {
+  c: 'add'
+  images: Array<{
+    fileType: string
+    url: string
+  }>
+  token?: string
+}
+
 interface DocEditorInstance {
   setRequestedDocument?: (payload: CompareRequestPayload) => void
   setRevisedFile?: (payload: Omit<CompareRequestPayload, 'c'>) => void
+  insertImage?: (payload: InsertImagePayload) => void
 }
 
 const props = defineProps<Props>()
@@ -175,8 +185,39 @@ const onRequestSelectDocument = () => {
   }
 }
 
+const insertImage = (imageUrl: string, fileType: string = 'png') => {
+  const editor = (window as { DocEditor?: { instances?: Record<string, DocEditorInstance | undefined> } })
+    .DocEditor?.instances?.[internalEditorId.value]
+
+  if (!editor) {
+    emit('error', '编辑器尚未就绪，请稍后再试')
+    return false
+  }
+
+  if (typeof editor.insertImage === 'function') {
+    // 转换 URL 为 Docker 容器可访问的地址
+    const reachableUrl = toReachableUrl(imageUrl)
+    const payload: InsertImagePayload = {
+      c: 'add',
+      images: [
+        {
+          fileType,
+          url: reachableUrl
+        }
+      ]
+    }
+    editor.insertImage(payload)
+    logger.log('✅ 调用 insertImage 成功:', reachableUrl)
+    return true
+  }
+
+  emit('error', '当前 OnlyOffice 实例不支持插入图片 API')
+  return false
+}
+
 defineExpose({
-  startCompare: triggerCompare
+  startCompare: triggerCompare,
+  insertImage
 })
 </script>
 

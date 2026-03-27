@@ -7,8 +7,9 @@ set -e  # 遇到错误立即退出
 
 # 配置变量
 PLUGIN_NAME="empower-toolbar"
-PLUGIN_GUID="{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}"
+PLUGIN_GUID="{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}"
 LEGACY_PLUGIN_GUIDS=(
+  "{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}"
   "{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF001}"
 )
 CONTAINER_NAME="${ONLYOFFICE_CONTAINER_NAME:-$(docker ps --filter "ancestor=onlyoffice/documentserver" --format "{{.Names}}" | head -1)}"

@@ -1,13 +1,14 @@
 # OnlyOffice 自定义工具栏插件接入手册
 
 本文对应仓库内新增插件：`public/onlyoffice-plugins/empower-toolbar`  
-插件 GUID：`asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}`
+插件 GUID：`asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}`
 
 ## 1. 已完成的代码改造
 
 - 编辑模式自动注入插件（`editorConfig.plugins.pluginsData + autostart`）
 - 插件内新增自定义工具栏 Tab：`业务工具`
 - 现有“插入印章”改为插件工具栏按钮触发
+- 新增“文档对比”工具栏按钮，触发 compare 流程（无需 Vue compare 页）
 - 侧边栏原“插入印章”按钮已移除，后续功能请继续加到该工具栏 Tab
 
 ## 2. 本地开发（无需拷贝到容器）
@@ -34,7 +35,7 @@ docker ps --filter "ancestor=onlyoffice/documentserver" --format "{{.Names}}"
 # 2) 拷贝插件目录到容器（目录名用 GUID 去掉 asc. 前缀）
 docker cp \
   /Users/azo/Work-EMPOWER/demo-office/public/onlyoffice-plugins/empower-toolbar \
-  <容器名>:/var/www/onlyoffice/documentserver/sdkjs-plugins/\{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101\}
+  <容器名>:/var/www/onlyoffice/documentserver/sdkjs-plugins/\{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102\}
 
 # 3) 重启容器
 docker restart <容器名>
@@ -45,9 +46,9 @@ docker restart <容器名>
 在前端环境变量中增加（仅在需要走容器插件时）：
 
 ```bash
-VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL=http://<你的-docserver>/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}/config.json
+VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL=http://<你的-docserver>/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}/config.json
 VITE_ONLYOFFICE_USE_REMOTE_TOOLBAR_PLUGIN=true
-VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.8
+VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.11
 ```
 
 说明：
@@ -62,8 +63,20 @@ VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.8
   - 选择图片（png/jpg/gif/webp）
   - 限制 5MB
   - 读取为 Base64 后直接插入（不依赖上传接口）
+- 工具栏按钮 `文档对比`：
+  - 在插件内选择 `.docx` 修订文档
+  - 向宿主页面发送 `postMessage(File)` 并上传
+  - 上传后自动触发 `setRequestedDocument/setRevisedFile` 对比逻辑
 
-## 5. 常见坑：改了插件但页面还是旧版本
+## 5. 插件代码结构（可维护化）
+
+- `scripts/features/stamp.js`：只负责“插入印章”特性
+- `scripts/features/compare.js`：只负责“文档对比”特性
+- `scripts/main.js`：只负责特性注册、工具栏挂载、事件分发
+
+新增功能时，直接新增 `scripts/features/<feature>.js` 并在 `index.html` 里按顺序加载即可。
+
+## 6. 常见坑：改了插件但页面还是旧版本
 
 如果你把插件放在 Document Server 的 `sdkjs-plugins` 目录里，可能出现“重启容器、无痕模式后仍是旧代码”。
 

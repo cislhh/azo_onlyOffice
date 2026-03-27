@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { DocumentEditor } from '@onlyoffice/document-editor-vue'
 import type { OnlyOfficeConfig, ComponentErrorEvent, OnlyOfficeUiTheme } from '@/types/onlyoffice'
-import { getFileType, getDocumentType, generateKey } from '@/utils/fileHelper'
+import { getFileType, getDocumentType, generateKey, uploadFile } from '@/utils/fileHelper'
 import { logger } from '@/utils/logger'
 
 interface Props {
@@ -41,10 +41,16 @@ const fileAccessBaseUrl = import.meta.env.VITE_FILE_ACCESS_BASE_URL as string | 
 const fileAccessHost = import.meta.env.VITE_FILE_ACCESS_HOST as string | undefined
 const toolbarPluginConfigUrlFromEnv = import.meta.env.VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL as string | undefined
 const useRemoteToolbarPlugin = import.meta.env.VITE_ONLYOFFICE_USE_REMOTE_TOOLBAR_PLUGIN === 'true'
-const toolbarPluginVersion = import.meta.env.VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION || '20260327.8'
+const toolbarPluginVersion = import.meta.env.VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION || '20260327.11'
 const toolbarPluginRequestNonce = Date.now().toString(36)
-const toolbarPluginGuid = 'asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}'
+const toolbarPluginGuid = 'asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}'
 const toolbarPluginConfigPath = '/onlyoffice-plugins/empower-toolbar/config.json'
+const toolbarPluginMessageSource = 'empower-toolbar-plugin'
+const toolbarPluginCompareMessageType = 'empower-toolbar:compare-file-selected'
+const pluginCompareMaxFileSize = Number(import.meta.env.VITE_MAX_FILE_SIZE) || 10 * 1024 * 1024
+
+const runtimeRevisedFile = ref<{ name: string, url: string } | null>(null)
+const isUploadingPluginCompareFile = ref(false)
 
 // OnlyOffice localStorage 键名常量
 const ONLYOFFICE_STORAGE_PREFIXES = [
@@ -145,11 +151,21 @@ const toReachableUrl = (url?: string) => {
 }
 
 const comparePayload = computed<CompareRequestPayload | null>(() => {
-  if (props.mode !== 'compare' || !props.revisedFileUrl) {
+  if (runtimeRevisedFile.value) {
+    return {
+      c: 'compare',
+      fileType: 'docx',
+      key: generateKey(),
+      title: runtimeRevisedFile.value.name,
+      url: toReachableUrl(runtimeRevisedFile.value.url)
+    }
+  }
+
+  if (!props.revisedFileUrl) {
     return null
   }
 
-  const fileType = getFileType(props.revisedFile?.name || '')
+  const fileType = getFileType(props.revisedFile?.name || props.revisedFileUrl)
   return {
     c: 'compare',
     fileType,
@@ -176,6 +192,25 @@ const toolbarPluginConfigUrl = computed(() => {
   return appendVersion(localUrl)
 })
 
+const getAllowedPluginMessageOrigins = () => {
+  const origins = new Set<string>()
+
+  const appendOrigin = (url?: string) => {
+    if (!url) return
+    try {
+      origins.add(new URL(url, window.location.origin).origin)
+    } catch (error) {
+      logger.warn('解析插件消息来源失败:', url, error)
+    }
+  }
+
+  origins.add(window.location.origin)
+  appendOrigin(props.documentServerUrl)
+  appendOrigin(toolbarPluginConfigUrl.value)
+
+  return origins
+}
+
 const config = computed<OnlyOfficeConfig | null>(() => {
   // 在计算配置前先清除缓存
   clearSpellcheckCache()
@@ -188,6 +223,7 @@ const config = computed<OnlyOfficeConfig | null>(() => {
   const documentType = getDocumentType(fileType)
   const key = generateKey()
   const isEditMode = props.mode !== 'view'
+  const canEnableReview = props.mode !== 'view' && fileType === 'docx' && documentType === 'word'
 
   return {
     document: {
@@ -197,7 +233,7 @@ const config = computed<OnlyOfficeConfig | null>(() => {
       url: toReachableUrl(props.fileUrl),
       permissions: {
         edit: props.mode === 'edit',
-        review: props.mode === 'compare',
+        review: canEnableReview,
         download: true,
         print: true
       }
@@ -207,7 +243,7 @@ const config = computed<OnlyOfficeConfig | null>(() => {
       mode: isEditMode ? 'edit' : 'view',
       callbackUrl: props.mode === 'edit' ? '' : undefined,
       lang: 'zh-CN',
-      plugins: props.mode === 'edit' ? {
+      plugins: props.mode !== 'view' ? {
         autostart: [toolbarPluginGuid],
         pluginsData: [toolbarPluginConfigUrl.value]
       } : undefined,
@@ -275,7 +311,7 @@ const onLoadComponentError = (event: ComponentErrorEvent) => {
       break
   }
 
-  emit('error', message)
+  emit('error', `${message}（错误码: ${event.errorCode}）`)
 }
 
 const onDocumentStateChange = (event: { data: boolean }) => {
@@ -283,10 +319,106 @@ const onDocumentStateChange = (event: { data: boolean }) => {
 }
 
 const onRequestSelectDocument = () => {
-  if (props.mode === 'compare') {
+  if (!comparePayload.value) {
+    emit('error', '请先通过“文档对比”按钮上传修订文档')
+    return
+  }
+
+  triggerCompare()
+}
+
+const validatePluginCompareFile = (file: File): string => {
+  if (getFileType(file.name) !== 'docx') {
+    return '仅支持上传 .docx 作为对比文档'
+  }
+
+  if (file.size > pluginCompareMaxFileSize) {
+    const maxSizeMB = (pluginCompareMaxFileSize / 1024 / 1024).toFixed(0)
+    return `对比文档大小不能超过 ${maxSizeMB}MB`
+  }
+
+  return ''
+}
+
+const uploadAndCompareByPluginFile = async (file: File) => {
+  if (props.mode === 'view') {
+    emit('error', '查看模式不支持文档对比，请切换到编辑模式')
+    return
+  }
+
+  const baseType = getFileType(props.file?.name || props.fileUrl || '')
+  if (baseType !== 'docx') {
+    emit('error', '当前文档不是 .docx，无法进行文档对比')
+    return
+  }
+
+  const validationError = validatePluginCompareFile(file)
+  if (validationError) {
+    emit('error', validationError)
+    return
+  }
+
+  if (isUploadingPluginCompareFile.value) {
+    emit('error', '正在上传对比文档，请稍后再试')
+    return
+  }
+
+  isUploadingPluginCompareFile.value = true
+  try {
+    const uploadedUrl = await uploadFile(file)
+    runtimeRevisedFile.value = {
+      name: file.name,
+      url: uploadedUrl
+    }
     triggerCompare()
+  } catch (error) {
+    emit('error', error instanceof Error ? error.message : '对比文档上传失败')
+  } finally {
+    isUploadingPluginCompareFile.value = false
   }
 }
+
+const onToolbarPluginMessage = async (event: MessageEvent) => {
+  const data = event.data
+  if (!data || typeof data !== 'object') return
+
+  const payload = data as Record<string, unknown>
+  if (
+    payload.source !== toolbarPluginMessageSource ||
+    payload.type !== toolbarPluginCompareMessageType
+  ) {
+    return
+  }
+
+  const allowedOrigins = getAllowedPluginMessageOrigins()
+  if (event.origin && !allowedOrigins.has(event.origin)) {
+    logger.warn('忽略来自未知来源的插件消息:', event.origin)
+    return
+  }
+
+  const file = payload.file
+  if (!(file instanceof File)) {
+    emit('error', '未读取到对比文档，请重新选择')
+    return
+  }
+
+  await uploadAndCompareByPluginFile(file)
+}
+
+watch(
+  () => props.fileUrl,
+  () => {
+    runtimeRevisedFile.value = null
+  }
+)
+
+onMounted(() => {
+  window.addEventListener('message', onToolbarPluginMessage)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('message', onToolbarPluginMessage)
+})
 
 defineExpose({
   startCompare: triggerCompare

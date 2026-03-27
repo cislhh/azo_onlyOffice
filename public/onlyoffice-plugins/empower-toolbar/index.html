@@ -32,7 +32,14 @@
 
         loadScript(sdkBase + "/plugins.js", function () {
           loadScript(sdkBase + "/plugins-ui.js", function () {
-            loadScript("scripts/main.js?v=" + encodeURIComponent(cacheBuster));
+            loadScript("scripts/features/stamp.js?v=" + encodeURIComponent(cacheBuster), function () {
+              loadScript(
+                "scripts/features/compare.js?v=" + encodeURIComponent(cacheBuster),
+                function () {
+                  loadScript("scripts/main.js?v=" + encodeURIComponent(cacheBuster));
+                }
+              );
+            });
           });
         });
       })();

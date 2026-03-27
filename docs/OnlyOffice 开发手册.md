@@ -84,9 +84,9 @@ VITE_FILE_ACCESS_HOST=192.168.0.196
 VITE_MAX_FILE_SIZE=10485760
 
 # 自定义工具栏插件配置（可选）
-VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL=http://localhost:80/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}/config.json
+VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL=http://localhost:80/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}/config.json
 VITE_ONLYOFFICE_USE_REMOTE_TOOLBAR_PLUGIN=true
-VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.8
+VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.11
 ```
 
 #### 3. 验证容器运行
@@ -149,7 +149,7 @@ plugin-name/
 ```json
 {
   "name": "插件名称",
-  "guid": "asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}",
+  "guid": "asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}",
   "baseUrl": "./",
   "version": "1.0.0",
   "variations": [
@@ -261,7 +261,7 @@ plugin-name/
 ```javascript
 (function(window, undefined){
   // 插件版本号（用于缓存控制）
-  const PLUGIN_VERSION = '20260327.8';
+  const PLUGIN_VERSION = '20260327.11';
 
   // 插件初始化
   window.Asc.plugin.init = function() {
@@ -297,11 +297,12 @@ plugin-name/
 本项目实现了自定义工具栏插件 `empower-toolbar`，提供：
 - 自定义工具栏 Tab：**业务工具**
 - 插入印章功能
+- 文档对比功能（通过业务工具栏触发 compare）
 - 可扩展的更多功能入口
 
 ### 插件配置
 
-**插件 GUID**：`asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}`
+**插件 GUID**：`asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}`
 
 **前端注入**：
 - 自动注入插件（`editorConfig.plugins.pluginsData + autostart`）
@@ -334,7 +335,7 @@ pnpm deploy:plugin
 # 1) 拷贝插件到容器
 docker cp \
   public/onlyoffice-plugins/empower-toolbar \
-  <容器名>:/var/www/onlyoffice/documentserver/sdkjs-plugins/\{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101\}
+  <容器名>:/var/www/onlyoffice/documentserver/sdkjs-plugins/\{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102\}
 
 # 2) 重启容器
 docker restart <容器名>
@@ -345,9 +346,9 @@ docker restart <容器名>
 在 `.env.local` 中添加：
 
 ```bash
-VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL=http://localhost:80/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}/config.json
+VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL=http://localhost:80/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}/config.json
 VITE_ONLYOFFICE_USE_REMOTE_TOOLBAR_PLUGIN=true
-VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.8
+VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.11
 ```
 
 **说明**：
@@ -410,7 +411,7 @@ ONLYOFFICE_CONTAINER_NAME=my-container ./scripts/deploy-plugin.sh
 
 当普通模式始终旧版本时，直接执行：
 
-1. 更换插件 GUID（如从 `...CF001` 切到 `...CF101`）
+1. 更换插件 GUID（如从 `...CF001` 切到 `...CF102`）
 2. 更新 `.env.local` 里的插件 URL GUID
 3. `pnpm deploy:plugin`
 4. 重启前端

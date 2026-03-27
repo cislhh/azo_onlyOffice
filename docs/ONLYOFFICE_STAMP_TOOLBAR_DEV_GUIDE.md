@@ -15,10 +15,12 @@
 
 ## 2. 当前业务约束（必须保持）
 
-1. 工具栏只保留一个按钮：`插入印章`（不是下拉）
+1. 工具栏包含两个按钮：`插入印章`、`文档对比`（都不是下拉）
 2. 图标固定：`resources/icon.png`
-3. 点击后选择图片并插入
-4. `callCommand` 必须 `isClose=false`，否则按钮会消失
+3. `插入印章`：点击后选择图片并插入
+4. `文档对比`：点击后触发宿主页面 compare 流程（postMessage）
+5. `callCommand` 必须 `isClose=false`，否则按钮会消失
+6. 每个功能独立放在 `scripts/features/*.js`，`main.js` 只做注册分发
 
 ## 3. 发布步骤（标准流程）
 
@@ -52,18 +54,18 @@ pnpm deploy:plugin
 
 当普通模式始终旧版本时，直接执行：
 
-1. 更换插件 GUID（本项目已从 `...CF001` 切到 `...CF101`）
+1. 更换插件 GUID（本项目已从 `...CF001` 切到 `...CF102`）
 2. 更新 `.env.local` 里的插件 URL GUID
 3. `pnpm deploy:plugin`
 4. 重启前端
 
 ## 5. 关键配置（当前值）
 
-- 插件 GUID：`asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}`
+- 插件 GUID：`asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}`
 - 远端插件 URL：  
-  `VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL=http://localhost:80/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}/config.json`
+  `VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL=http://localhost:80/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}/config.json`
 - 强制版本：  
-  `VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.8`
+  `VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.11`
 
 ## 6. 快速排障索引（按症状）
 
@@ -77,13 +79,22 @@ pnpm deploy:plugin
 4. 容器内脚本版本：
 
 ```bash
-docker exec <容器名> sh -c "grep -n 'PLUGIN_VERSION' /var/www/onlyoffice/documentserver/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}/scripts/main.js"
+docker exec <容器名> sh -c "grep -n 'PLUGIN_VERSION' /var/www/onlyoffice/documentserver/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}/scripts/main.js"
 ```
 
 ### 症状 B：点击按钮后工具栏消失
 
 原因：`callCommand(..., true)` 关闭插件。  
 修复：改成 `callCommand(..., false, true, callback)`。
+
+### 症状 E：点击“文档对比”无反应
+
+检查顺序：
+
+1. 当前是否在 `编辑模式`（查看模式不支持对比）
+2. 当前编辑文档是否为 `.docx`（非 docx 不支持对比）
+3. 是否成功选择了修订文档（插件内文件选择）
+4. 控制台是否有 `忽略来自未知来源的插件消息`（跨域来源被拦截）
 
 ### 症状 C：`translations/*.json` 404
 

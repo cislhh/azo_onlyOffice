@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import OnlyOfficeEditor from "@/components/OnlyOfficeEditor.vue";
 import { validateFile, uploadFile } from "@/utils/fileHelper";
 import { logger } from "@/utils/logger";
@@ -12,17 +12,13 @@ if (!DOCUMENT_SERVER_URL) {
   );
 }
 
-type TabMode = "view" | "edit" | "compare";
+type TabMode = "view" | "edit";
 type UiTheme = "theme-light" | "theme-dark";
 
 interface UploadedDoc {
   file: File;
   url: string;
   uploadedAt: number;
-}
-
-interface OnlyOfficeEditorExpose {
-  startCompare: () => boolean;
 }
 
 const activeTab = ref<TabMode>("view");
@@ -33,54 +29,16 @@ const statusMessage = ref("");
 
 const viewDoc = ref<UploadedDoc | null>(null);
 const editDoc = ref<UploadedDoc | null>(null);
-const compareBaseDoc = ref<UploadedDoc | null>(null);
-const compareRevisedDoc = ref<UploadedDoc | null>(null);
-
-const compareEditorRef = ref<OnlyOfficeEditorExpose | null>(null);
-const compareEditorReady = ref(false);
-const lastComparedBaseUploadedAt = ref<number | null>(null);
-
-const communityCompareNotice =
-  "OnlyOffice 社区版通常不包含文档比较授权（该能力主要在企业版/开发者版）。本 demo 已按官方 API 方式接入，如果无授权会在编辑器内提示失败。";
-
-const canStartCompare = computed(
-  () =>
-    !!compareBaseDoc.value &&
-    !!compareRevisedDoc.value &&
-    compareEditorReady.value &&
-    lastComparedBaseUploadedAt.value !== compareBaseDoc.value.uploadedAt,
-);
-
-const compareButtonText = computed(() => {
-  if (!compareBaseDoc.value || !compareRevisedDoc.value)
-    return "请先上传两个文档";
-  if (!compareEditorReady.value) return "编辑器加载中...";
-  if (lastComparedBaseUploadedAt.value === compareBaseDoc.value.uploadedAt) {
-    return "已比较，请重传基准文档";
-  }
-  return "开始比较";
-});
-
-const toAbsoluteUrl = (path: string) => `${window.location.origin}${path}`;
-const createVirtualFile = (name: string) => new File([], name);
 
 const setTab = (tab: TabMode) => {
   activeTab.value = tab;
   errorMessage.value = "";
   statusMessage.value = "";
-  if (tab !== "compare") {
-    compareEditorReady.value = false;
-  }
 };
 
 const setUiTheme = (theme: UiTheme) => {
   if (uiTheme.value === theme) return;
   uiTheme.value = theme;
-
-  // 主题切换会触发编辑器重建，先重置 compare 状态避免误操作
-  if (activeTab.value === "compare") {
-    compareEditorReady.value = false;
-  }
 };
 
 const uploadByInputEvent = async (
@@ -128,81 +86,13 @@ const onEditFileChange = async (event: Event) => {
   statusMessage.value = `已加载编辑文档：${uploaded.file.name}`;
 };
 
-const onCompareBaseChange = async (event: Event) => {
-  const uploaded = await uploadByInputEvent(event);
-  if (!uploaded) return;
-
-  compareBaseDoc.value = uploaded;
-  lastComparedBaseUploadedAt.value = null;
-  compareEditorReady.value = false;
-  statusMessage.value = `已加载基准文档：${uploaded.file.name}`;
-};
-
-const onCompareRevisedChange = async (event: Event) => {
-  const uploaded = await uploadByInputEvent(event);
-  if (!uploaded) return;
-
-  compareRevisedDoc.value = uploaded;
-  compareEditorReady.value = false;
-  statusMessage.value = `已加载对比文档：${uploaded.file.name}`;
-};
-
 const loadViewSample = () => {
   viewDoc.value = {
-    file: createVirtualFile("demo.docx"),
+    file: new File([], "demo.docx"),
     url: "https://static.onlyoffice.com/assets/docs/samples/demo.docx",
     uploadedAt: Date.now(),
   };
   statusMessage.value = "已加载 OnlyOffice 官方公开示例文档";
-};
-
-const loadCompareSample = () => {
-  compareBaseDoc.value = {
-    file: createVirtualFile("old.docx"),
-    url: toAbsoluteUrl("/temp/old.docx"),
-    uploadedAt: Date.now(),
-  };
-
-  compareRevisedDoc.value = {
-    file: createVirtualFile("new.docx"),
-    url: toAbsoluteUrl("/temp/new.docx"),
-    uploadedAt: Date.now(),
-  };
-
-  lastComparedBaseUploadedAt.value = null;
-  compareEditorReady.value = false;
-  statusMessage.value = "已加载本地示例 old.docx / new.docx";
-};
-
-const onCompareEditorReady = () => {
-  compareEditorReady.value = true;
-};
-
-const startCompare = () => {
-  if (!compareBaseDoc.value || !compareRevisedDoc.value) {
-    errorMessage.value = "请先上传两个 docx 文件";
-    return;
-  }
-
-  if (!compareEditorReady.value) {
-    errorMessage.value = "编辑器还未加载完成，请稍后再试";
-    return;
-  }
-
-  if (lastComparedBaseUploadedAt.value === compareBaseDoc.value.uploadedAt) {
-    errorMessage.value = "";
-    statusMessage.value =
-      "当前基准文档已经比较过。如需再次比较，请重新上传基准文档。";
-    return;
-  }
-
-  const ok = compareEditorRef.value?.startCompare();
-  if (ok) {
-    lastComparedBaseUploadedAt.value = compareBaseDoc.value.uploadedAt;
-    errorMessage.value = "";
-    statusMessage.value =
-      "已触发文档比较。当前基准文档已锁定，重新上传基准文档后可再次比较。";
-  }
 };
 
 const onEditorError = (message: string) => {
@@ -322,26 +212,6 @@ const onEditorError = (message: string) => {
               <span>编辑模式</span>
             </button>
 
-            <button
-              class="nav-button"
-              :class="{ active: activeTab === 'compare' }"
-              @click="setTab('compare')"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
-              <span>对比模式</span>
-            </button>
           </div>
 
           <div class="nav-section" v-if="activeTab === 'view'">
@@ -415,123 +285,18 @@ const onEditorError = (message: string) => {
             </label>
           </div>
 
-          <div class="nav-section" v-if="activeTab === 'compare'">
-            <h3 class="nav-section-title">对比文件</h3>
-            <button
-              class="nav-button nav-button-action"
-              @click="loadCompareSample"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-              <span>加载本地示例</span>
-            </button>
-            <label class="nav-button nav-button-upload">
-              <input
-                type="file"
-                accept=".docx"
-                :disabled="isUploading"
-                @change="onCompareBaseChange"
-              />
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
-              <span>上传基准文档</span>
-            </label>
-            <label class="nav-button nav-button-upload">
-              <input
-                type="file"
-                accept=".docx"
-                :disabled="isUploading"
-                @change="onCompareRevisedChange"
-              />
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
-              <span>上传对比文档</span>
-            </label>
-            <button
-              class="nav-button nav-button-primary"
-              :disabled="!canStartCompare"
-              @click="startCompare"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-              <span>{{ compareButtonText }}</span>
-            </button>
-          </div>
         </nav>
 
         <div class="sidebar-footer">
-          <div class="notice-box" v-if="activeTab === 'compare'">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <p>{{ communityCompareNotice }}</p>
-          </div>
           <div
             class="status-indicator"
             :class="{
-              online:
-                viewDoc || editDoc || (compareBaseDoc && compareRevisedDoc),
+              online: viewDoc || editDoc,
             }"
           >
             <span class="status-dot"></span>
             <span class="status-text">{{
-              viewDoc || editDoc || (compareBaseDoc && compareRevisedDoc)
-                ? "编辑器就绪"
-                : "等待加载"
+              viewDoc || editDoc ? "编辑器就绪" : "等待加载"
             }}</span>
           </div>
         </div>
@@ -603,40 +368,6 @@ const onEditorError = (message: string) => {
             </div>
           </template>
 
-          <template v-if="activeTab === 'compare'">
-            <OnlyOfficeEditor
-              v-if="compareBaseDoc && compareRevisedDoc"
-              ref="compareEditorRef"
-              editor-id="compare-editor"
-              :documentServerUrl="DOCUMENT_SERVER_URL"
-              :file-url="compareBaseDoc.url"
-              :file="compareBaseDoc.file"
-              :ui-theme="uiTheme"
-              :revised-file-url="compareRevisedDoc.url"
-              :revised-file="compareRevisedDoc.file"
-              mode="compare"
-              @document-ready="onCompareEditorReady"
-              @error="onEditorError"
-            />
-            <div v-else class="empty-state">
-              <svg
-                class="empty-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
-              <p class="empty-text">请先上传两个文档进行对比</p>
-              <p class="empty-hint">需要上传基准文档和对比文档（.docx 格式）</p>
-            </div>
-          </template>
         </div>
       </main>
     </div>

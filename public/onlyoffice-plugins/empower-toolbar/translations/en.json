@@ -1,5 +1,7 @@
 {
   "业务工具": "Business Tools",
   "插入印章": "Insert Stamp",
-  "上传印章图片并插入到文档": "Upload a stamp image and insert it into the document"
+  "上传印章图片并插入到文档": "Upload a stamp image and insert it into the document",
+  "文档对比": "Compare Document",
+  "选择修订文档并触发对比": "Select a revised document and start comparison"
 }

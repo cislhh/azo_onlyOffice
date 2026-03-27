@@ -1,0 +1,27 @@
+{
+  "name": "一键水印",
+  "guid": "asc.{6B5A1D6E-C1B5-4C8E-9E5A-7D1E8F2B5C3D}",
+  "group": {
+    "name": "plugins",
+    "rank": 2
+  },
+  "baseUrl": "",
+  "variations": [
+    {
+      "description": "hello world",
+      "url": "index.html",
+      "icons": [
+        "resources/icon.png"
+      ],
+      "isViewer": false,
+      "EditorsSupport": [
+        "word"
+      ],
+      "type": "unvisible",
+      "initDataType": "none",
+      "initData": "",
+      "isUpdateOleOnResize": true,
+      "buttons": []
+    }
+  ]
+}

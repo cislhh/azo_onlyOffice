@@ -26,6 +26,15 @@ export interface OnlyOfficeConfig {
     mode: 'edit' | 'view' | 'review'
     callbackUrl?: string  // 可选，编辑模式需要
     lang: string
+    plugins?: {
+      autostart?: string[]
+      pluginsData?: string[]
+      url?: string
+      options?: {
+        all?: object
+        pluginGuid: object
+      }
+    }
     customization?: {
       uiTheme?: OnlyOfficeUiTheme
     }

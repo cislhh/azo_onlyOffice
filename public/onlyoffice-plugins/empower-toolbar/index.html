@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>EMPOWER Toolbar Plugin</title>
+    <script type="text/javascript">
+      (function () {
+        var sdkBase = "https://onlyoffice.github.io/sdkjs-plugins/v1";
+
+        try {
+          var referrerUrl = new URL(document.referrer);
+          var marker = "/web-apps/";
+          var markerIndex = referrerUrl.pathname.indexOf(marker);
+          var pathPrefix =
+            markerIndex >= 0 ? referrerUrl.pathname.slice(0, markerIndex) : "";
+          sdkBase = referrerUrl.origin + pathPrefix + "/sdkjs-plugins/v1";
+        } catch (error) {}
+
+        var style = document.createElement("link");
+        style.rel = "stylesheet";
+        style.href = sdkBase + "/plugins.css";
+        document.head.appendChild(style);
+
+        var loadScript = function (src, onLoad) {
+          var script = document.createElement("script");
+          script.type = "text/javascript";
+          script.src = src;
+          script.onload = onLoad || null;
+          document.head.appendChild(script);
+        };
+
+        loadScript(sdkBase + "/plugins.js", function () {
+          loadScript(sdkBase + "/plugins-ui.js", function () {
+            loadScript("scripts/main.js");
+          });
+        });
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

@@ -23,7 +23,6 @@ interface UploadedDoc {
 
 interface OnlyOfficeEditorExpose {
   startCompare: () => boolean;
-  insertImage: (imageUrl: string, fileType?: string) => boolean;
 }
 
 const activeTab = ref<TabMode>("view");
@@ -37,7 +36,6 @@ const editDoc = ref<UploadedDoc | null>(null);
 const compareBaseDoc = ref<UploadedDoc | null>(null);
 const compareRevisedDoc = ref<UploadedDoc | null>(null);
 
-const editEditorRef = ref<OnlyOfficeEditorExpose | null>(null);
 const compareEditorRef = ref<OnlyOfficeEditorExpose | null>(null);
 const compareEditorReady = ref(false);
 const lastComparedBaseUploadedAt = ref<number | null>(null);
@@ -211,49 +209,6 @@ const onEditorError = (message: string) => {
   errorMessage.value = message;
 };
 
-const onStampImageChange = async (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  if (!file) return;
-
-  // 验证是否为图片文件
-  const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
-  if (!validTypes.includes(file.type)) {
-    errorMessage.value = '请选择 PNG、JPG、GIF 或 WebP 格式的图片';
-    return;
-  }
-
-  // 验证文件大小（限制 5MB）
-  const maxSize = 5 * 1024 * 1024;
-  if (file.size > maxSize) {
-    errorMessage.value = '图片大小不能超过 5MB';
-    return;
-  }
-
-  isUploading.value = true;
-  errorMessage.value = '';
-
-  try {
-    const url = await uploadFile(file);
-    logger.log('印章图片上传完成:', file.name, url);
-
-    // 获取文件扩展名
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
-
-    // 调用编辑器的 insertImage 方法
-    if (editEditorRef.value?.insertImage(url, ext)) {
-      statusMessage.value = `已插入印章：${file.name}`;
-    } else {
-      errorMessage.value = '插入印章失败，请确保编辑器已就绪';
-    }
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '图片上传失败';
-  } finally {
-    isUploading.value = false;
-    // 清空 input 以允许重复选择同一文件
-    target.value = '';
-  }
-};
 </script>
 
 <template>
@@ -460,32 +415,6 @@ const onStampImageChange = async (event: Event) => {
             </label>
           </div>
 
-          <div class="nav-section" v-if="activeTab === 'edit' && editDoc">
-            <h3 class="nav-section-title">文档工具</h3>
-            <label class="nav-button nav-button-upload">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
-                :disabled="isUploading"
-                @change="onStampImageChange"
-              />
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <span>插入印章</span>
-            </label>
-          </div>
-
           <div class="nav-section" v-if="activeTab === 'compare'">
             <h3 class="nav-section-title">对比文件</h3>
             <button
@@ -646,7 +575,6 @@ const onStampImageChange = async (event: Event) => {
           <template v-if="activeTab === 'edit'">
             <OnlyOfficeEditor
               v-if="editDoc"
-              ref="editEditorRef"
               editor-id="edit-editor"
               :documentServerUrl="DOCUMENT_SERVER_URL"
               :file-url="editDoc.url"

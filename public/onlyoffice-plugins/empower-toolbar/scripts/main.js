@@ -1,0 +1,246 @@
+(function (window) {
+  var PLUGIN_VERSION = "20260327.4";
+  var TOOLBAR_TAB_ID = "empower_tools_tab";
+  var BUTTON_INSERT_STAMP_ID = "empower_insert_stamp";
+  var TOOLBAR_ICON_PATH = "resources/icon.png";
+  var MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+  var toolbarMounted = false;
+  var fileInput = null;
+
+  function showMessage(message) {
+    window.alert(message);
+  }
+
+  function createFileInput() {
+    if (fileInput) return fileInput;
+
+    fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/png,image/jpeg,image/jpg,image/gif,image/webp";
+    fileInput.style.display = "none";
+    fileInput.addEventListener("change", onFileChanged);
+    document.body.appendChild(fileInput);
+    return fileInput;
+  }
+
+  function openImagePicker() {
+    var input = createFileInput();
+    input.value = "";
+    input.click();
+  }
+
+  function readAsDataUrl(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        resolve(reader.result);
+      };
+      reader.onerror = function () {
+        reject(new Error("读取图片失败"));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function measureImage(dataUrl) {
+    return new Promise(function (resolve, reject) {
+      var image = new Image();
+      image.onload = function () {
+        var maxWidthPx = 180;
+        var ratio = image.width > maxWidthPx ? maxWidthPx / image.width : 1;
+        var widthPx = Math.max(24, Math.round(image.width * ratio));
+        var heightPx = Math.max(24, Math.round(image.height * ratio));
+
+        resolve({
+          widthEmu: widthPx * 9525,
+          heightEmu: heightPx * 9525,
+        });
+      };
+      image.onerror = function () {
+        reject(new Error("解析图片尺寸失败"));
+      };
+      image.src = dataUrl;
+    });
+  }
+
+  function insertStampImage(dataUrl, widthEmu, heightEmu) {
+    Asc.scope.imageSrc = dataUrl;
+    Asc.scope.widthEmu = widthEmu;
+    Asc.scope.heightEmu = heightEmu;
+
+    window.Asc.plugin.callCommand(
+      function () {
+        var imageSrc = Asc.scope.imageSrc;
+        var width = Asc.scope.widthEmu;
+        var height = Asc.scope.heightEmu;
+
+        // Spreadsheet editor
+        try {
+          if (typeof Api.GetActiveSheet === "function") {
+            var sheet = Api.GetActiveSheet();
+            if (sheet && typeof sheet.AddImage === "function") {
+              sheet.AddImage(imageSrc, width, height, 0, 2 * 36000, 0, 2 * 36000);
+              return;
+            }
+          }
+        } catch (error) {}
+
+        // Presentation editor
+        try {
+          if (typeof Api.GetPresentation === "function") {
+            var presentation = Api.GetPresentation();
+            var slide =
+              presentation && typeof presentation.GetCurrentSlide === "function"
+                ? presentation.GetCurrentSlide()
+                : presentation && typeof presentation.GetSlideByIndex === "function"
+                  ? presentation.GetSlideByIndex(0)
+                  : null;
+
+            var imageObject = Api.CreateImage(imageSrc, width, height);
+            if (imageObject && typeof imageObject.SetPosition === "function") {
+              imageObject.SetPosition(2 * 36000, 2 * 36000);
+            }
+            if (slide && typeof slide.AddObject === "function") {
+              slide.AddObject(imageObject);
+              return;
+            }
+          }
+        } catch (error) {}
+
+        // Document/PDF editor
+        try {
+          if (typeof Api.GetDocument === "function") {
+            var doc = Api.GetDocument();
+            var image = Api.CreateImage(imageSrc, width, height);
+
+            var paragraph =
+              doc && typeof doc.GetCurrentParagraph === "function"
+                ? doc.GetCurrentParagraph()
+                : null;
+
+            if (!paragraph && doc && typeof doc.GetElement === "function") {
+              paragraph = doc.GetElement(0);
+            }
+
+            if (
+              !paragraph &&
+              doc &&
+              typeof doc.Push === "function" &&
+              typeof Api.CreateParagraph === "function"
+            ) {
+              paragraph = Api.CreateParagraph();
+              doc.Push(paragraph);
+            }
+
+            if (paragraph && typeof paragraph.AddDrawing === "function") {
+              paragraph.AddDrawing(image);
+              return;
+            }
+
+            if (doc && typeof doc.GetPage === "function") {
+              var page = doc.GetPage(0);
+              if (page && typeof page.AddObject === "function") {
+                if (image && typeof image.SetPosition === "function") {
+                  image.SetPosition(2 * 36000, 2 * 36000);
+                }
+                page.AddObject(image);
+              }
+            }
+          }
+        } catch (error) {}
+      },
+      true
+    );
+  }
+
+  function validateImage(file) {
+    var validTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/gif",
+      "image/webp",
+    ];
+
+    if (!validTypes.includes(file.type)) {
+      return "请选择 PNG、JPG、GIF 或 WebP 格式的图片";
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      return "图片大小不能超过 5MB";
+    }
+
+    return "";
+  }
+
+  async function onFileChanged(event) {
+    var file = event && event.target && event.target.files && event.target.files[0];
+    if (!file) return;
+
+    var validationError = validateImage(file);
+    if (validationError) {
+      showMessage(validationError);
+      return;
+    }
+
+    try {
+      var dataUrl = await readAsDataUrl(file);
+      var size = await measureImage(dataUrl);
+      insertStampImage(dataUrl, size.widthEmu, size.heightEmu);
+    } catch (error) {
+      showMessage("插入印章失败，请重试");
+    }
+  }
+
+  function mountToolbar() {
+    if (toolbarMounted) return;
+    toolbarMounted = true;
+
+    window.Asc.plugin.executeMethod("AddToolbarMenuItem", [
+      {
+        guid: window.Asc.plugin.guid,
+        tabs: [
+          {
+            id: TOOLBAR_TAB_ID,
+            text: "业务工具",
+            items: [
+              {
+                id: BUTTON_INSERT_STAMP_ID,
+                type: "button",
+                text: "插入印章",
+                hint: "上传印章图片并插入到文档",
+                icons: TOOLBAR_ICON_PATH,
+                lockInViewMode: true,
+                split: false,
+                enableToggle: false,
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+  }
+
+  window.Asc.plugin.init = function () {
+    if (window.console && typeof window.console.log === "function") {
+      window.console.log("[empower-toolbar] init version:", PLUGIN_VERSION);
+    }
+
+    createFileInput();
+    mountToolbar();
+
+    if (typeof window.Asc.plugin.attachToolbarMenuClickEvent === "function") {
+      window.Asc.plugin.attachToolbarMenuClickEvent(BUTTON_INSERT_STAMP_ID, function () {
+        openImagePicker();
+      });
+    }
+  };
+
+  window.Asc.plugin.event_onToolbarMenuClick = function (id) {
+    if (id === BUTTON_INSERT_STAMP_ID) {
+      openImagePicker();
+    }
+  };
+
+  window.Asc.plugin.button = function () {};
+})(window);

@@ -1,0 +1,33 @@
+{
+  "name": "EMPOWER Toolbar",
+  "guid": "asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF001}",
+  "baseUrl": "./",
+  "version": "1.0.0",
+  "icons": [
+    "resources/icon.png"
+  ],
+  "variations": [
+    {
+      "description": "EMPOWER custom business toolbar",
+      "url": "index.html",
+      "icons": [
+        "resources/icon.png"
+      ],
+      "isViewer": false,
+      "EditorsSupport": [
+        "word",
+        "cell",
+        "slide",
+        "pdf"
+      ],
+      "type": "background",
+      "initDataType": "none",
+      "initData": "",
+      "isUpdateOleOnResize": true,
+      "events": [
+        "onToolbarMenuClick"
+      ],
+      "buttons": []
+    }
+  ]
+}

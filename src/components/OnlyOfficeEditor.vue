@@ -25,19 +25,9 @@ interface CompareRequestPayload {
   url: string
 }
 
-interface InsertImagePayload {
-  c: 'add'
-  images: Array<{
-    fileType: string
-    url: string
-  }>
-  token?: string
-}
-
 interface DocEditorInstance {
   setRequestedDocument?: (payload: CompareRequestPayload) => void
   setRevisedFile?: (payload: Omit<CompareRequestPayload, 'c'>) => void
-  insertImage?: (payload: InsertImagePayload) => void
 }
 
 const props = defineProps<Props>()
@@ -49,6 +39,11 @@ const emit = defineEmits<{
 
 const fileAccessBaseUrl = import.meta.env.VITE_FILE_ACCESS_BASE_URL as string | undefined
 const fileAccessHost = import.meta.env.VITE_FILE_ACCESS_HOST as string | undefined
+const toolbarPluginConfigUrlFromEnv = import.meta.env.VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL as string | undefined
+const useRemoteToolbarPlugin = import.meta.env.VITE_ONLYOFFICE_USE_REMOTE_TOOLBAR_PLUGIN === 'true'
+const toolbarPluginVersion = import.meta.env.VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION || '20260327.3'
+const toolbarPluginGuid = 'asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF001}'
+const toolbarPluginConfigPath = '/onlyoffice-plugins/empower-toolbar/config.json'
 
 const internalEditorId = computed(() => props.editorId || 'onlyoffice-editor')
 
@@ -89,6 +84,23 @@ const comparePayload = computed<CompareRequestPayload | null>(() => {
   }
 })
 
+const toolbarPluginConfigUrl = computed(() => {
+  const appendVersion = (url: string) => {
+    if (url.includes('?')) return `${url}&v=${encodeURIComponent(toolbarPluginVersion)}`
+    return `${url}?v=${encodeURIComponent(toolbarPluginVersion)}`
+  }
+
+  const localUrl = typeof window === 'undefined'
+    ? toolbarPluginConfigPath
+    : `${window.location.origin}${toolbarPluginConfigPath}`
+
+  if (useRemoteToolbarPlugin && toolbarPluginConfigUrlFromEnv) {
+    return appendVersion(toolbarPluginConfigUrlFromEnv)
+  }
+
+  return appendVersion(localUrl)
+})
+
 const config = computed<OnlyOfficeConfig | null>(() => {
   if (!props.fileUrl) {
     return null
@@ -117,6 +129,10 @@ const config = computed<OnlyOfficeConfig | null>(() => {
       mode: isEditMode ? 'edit' : 'view',
       callbackUrl: props.mode === 'edit' ? '' : undefined,
       lang: 'zh-CN',
+      plugins: props.mode === 'edit' ? {
+        autostart: [toolbarPluginGuid],
+        pluginsData: [toolbarPluginConfigUrl.value]
+      } : undefined,
       customization: {
         uiTheme: props.uiTheme || 'theme-light'
       }
@@ -189,39 +205,8 @@ const onRequestSelectDocument = () => {
   }
 }
 
-const insertImage = (imageUrl: string, fileType: string = 'png') => {
-  const editor = (window as { DocEditor?: { instances?: Record<string, DocEditorInstance | undefined> } })
-    .DocEditor?.instances?.[internalEditorId.value]
-
-  if (!editor) {
-    emit('error', '编辑器尚未就绪，请稍后再试')
-    return false
-  }
-
-  if (typeof editor.insertImage === 'function') {
-    // 转换 URL 为 Docker 容器可访问的地址
-    const reachableUrl = toReachableUrl(imageUrl)
-    const payload: InsertImagePayload = {
-      c: 'add',
-      images: [
-        {
-          fileType,
-          url: reachableUrl
-        }
-      ]
-    }
-    editor.insertImage(payload)
-    logger.log('✅ 调用 insertImage 成功:', reachableUrl)
-    return true
-  }
-
-  emit('error', '当前 OnlyOffice 实例不支持插入图片 API')
-  return false
-}
-
 defineExpose({
-  startCompare: triggerCompare,
-  insertImage
+  startCompare: triggerCompare
 })
 </script>
 

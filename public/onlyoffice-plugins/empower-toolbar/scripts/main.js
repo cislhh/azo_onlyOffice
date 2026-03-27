@@ -1,8 +1,11 @@
 (function (window) {
-  var PLUGIN_VERSION = "20260327.4";
+  var PLUGIN_VERSION = "20260327.6";
   var TOOLBAR_TAB_ID = "empower_tools_tab";
   var BUTTON_INSERT_STAMP_ID = "empower_insert_stamp";
   var TOOLBAR_ICON_PATH = "resources/icon.png";
+  var FIXED_STAMP_WIDTH_EMU = 160 * 9525;
+  var FIXED_STAMP_HEIGHT_EMU = 64 * 9525;
+  var FIXED_STAMP_MARGIN_EMU = 8 * 36000;
   var MAX_IMAGE_SIZE = 5 * 1024 * 1024;
   var toolbarMounted = false;
   var fileInput = null;
@@ -67,12 +70,18 @@
     Asc.scope.imageSrc = dataUrl;
     Asc.scope.widthEmu = widthEmu;
     Asc.scope.heightEmu = heightEmu;
+    Asc.scope.fixedStampWidthEmu = FIXED_STAMP_WIDTH_EMU;
+    Asc.scope.fixedStampHeightEmu = FIXED_STAMP_HEIGHT_EMU;
+    Asc.scope.fixedStampMarginEmu = FIXED_STAMP_MARGIN_EMU;
 
     window.Asc.plugin.callCommand(
       function () {
         var imageSrc = Asc.scope.imageSrc;
         var width = Asc.scope.widthEmu;
         var height = Asc.scope.heightEmu;
+        var fixedStampWidth = Asc.scope.fixedStampWidthEmu;
+        var fixedStampHeight = Asc.scope.fixedStampHeightEmu;
+        var fixedStampMargin = Asc.scope.fixedStampMarginEmu;
 
         // Spreadsheet editor
         try {
@@ -111,7 +120,64 @@
         try {
           if (typeof Api.GetDocument === "function") {
             var doc = Api.GetDocument();
-            var image = Api.CreateImage(imageSrc, width, height);
+            var image = Api.CreateImage(imageSrc, fixedStampWidth, fixedStampHeight);
+
+            if (image && typeof image.SetWrappingStyle === "function") {
+              image.SetWrappingStyle("inFront");
+            }
+            if (image && typeof image.SetHorAlign === "function") {
+              image.SetHorAlign("page", "right");
+            }
+            if (image && typeof image.SetVerAlign === "function") {
+              image.SetVerAlign("page", "bottom");
+            }
+            if (image && typeof image.SetDistances === "function") {
+              image.SetDistances(
+                fixedStampMargin,
+                fixedStampMargin,
+                fixedStampMargin,
+                fixedStampMargin
+              );
+            }
+
+            // 优先使用绝对页面定位，确保固定大小和右下角位置稳定
+            if (
+              doc &&
+              typeof doc.AddDrawingToPage === "function" &&
+              typeof doc.GetCurrentPage === "function"
+            ) {
+              var twipToEmu = 635;
+              var currentPage = doc.GetCurrentPage();
+              var x = fixedStampMargin;
+              var y = fixedStampMargin;
+
+              if (typeof doc.GetFinalSection === "function") {
+                var section = doc.GetFinalSection();
+                if (
+                  section &&
+                  typeof section.GetPageWidth === "function" &&
+                  typeof section.GetPageHeight === "function" &&
+                  typeof section.GetPageMarginRight === "function" &&
+                  typeof section.GetPageMarginBottom === "function"
+                ) {
+                  var pageWidthEmu = section.GetPageWidth() * twipToEmu;
+                  var pageHeightEmu = section.GetPageHeight() * twipToEmu;
+                  var rightMarginEmu = section.GetPageMarginRight() * twipToEmu;
+                  var bottomMarginEmu = section.GetPageMarginBottom() * twipToEmu;
+                  x = Math.max(
+                    0,
+                    pageWidthEmu - rightMarginEmu - fixedStampWidth - fixedStampMargin
+                  );
+                  y = Math.max(
+                    0,
+                    pageHeightEmu - bottomMarginEmu - fixedStampHeight - fixedStampMargin
+                  );
+                }
+              }
+
+              doc.AddDrawingToPage(image, currentPage, x, y);
+              return;
+            }
 
             var paragraph =
               doc && typeof doc.GetCurrentParagraph === "function"

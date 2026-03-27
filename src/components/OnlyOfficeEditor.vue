@@ -41,8 +41,9 @@ const fileAccessBaseUrl = import.meta.env.VITE_FILE_ACCESS_BASE_URL as string | 
 const fileAccessHost = import.meta.env.VITE_FILE_ACCESS_HOST as string | undefined
 const toolbarPluginConfigUrlFromEnv = import.meta.env.VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL as string | undefined
 const useRemoteToolbarPlugin = import.meta.env.VITE_ONLYOFFICE_USE_REMOTE_TOOLBAR_PLUGIN === 'true'
-const toolbarPluginVersion = import.meta.env.VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION || '20260327.3'
-const toolbarPluginGuid = 'asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF001}'
+const toolbarPluginVersion = import.meta.env.VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION || '20260327.8'
+const toolbarPluginRequestNonce = Date.now().toString(36)
+const toolbarPluginGuid = 'asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}'
 const toolbarPluginConfigPath = '/onlyoffice-plugins/empower-toolbar/config.json'
 
 const internalEditorId = computed(() => props.editorId || 'onlyoffice-editor')
@@ -86,8 +87,8 @@ const comparePayload = computed<CompareRequestPayload | null>(() => {
 
 const toolbarPluginConfigUrl = computed(() => {
   const appendVersion = (url: string) => {
-    if (url.includes('?')) return `${url}&v=${encodeURIComponent(toolbarPluginVersion)}`
-    return `${url}?v=${encodeURIComponent(toolbarPluginVersion)}`
+    const sep = url.includes('?') ? '&' : '?'
+    return `${url}${sep}v=${encodeURIComponent(toolbarPluginVersion)}&t=${encodeURIComponent(toolbarPluginRequestNonce)}`
   }
 
   const localUrl = typeof window === 'undefined'

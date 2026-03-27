@@ -7,7 +7,10 @@ set -e  # 遇到错误立即退出
 
 # 配置变量
 PLUGIN_NAME="empower-toolbar"
-PLUGIN_GUID="{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF001}"
+PLUGIN_GUID="{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}"
+LEGACY_PLUGIN_GUIDS=(
+  "{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF001}"
+)
 CONTAINER_NAME="${ONLYOFFICE_CONTAINER_NAME:-$(docker ps --filter "ancestor=onlyoffice/documentserver" --format "{{.Names}}" | head -1)}"
 PLUGIN_SOURCE_PATH="$(dirname "$0")/../public/onlyoffice-plugins/${PLUGIN_NAME}"
 PLUGIN_TARGET_PATH="/var/www/onlyoffice/documentserver/sdkjs-plugins/${PLUGIN_GUID}"
@@ -63,6 +66,9 @@ echo -e "${GREEN}✓ 步骤 2/4: 容器状态正常${NC}"
 
 # 3. 清理旧插件并复制新插件（避免目录嵌套导致旧文件残留）
 echo -e "${BLUE}🧹 正在清理旧插件目录...${NC}"
+for old_guid in "${LEGACY_PLUGIN_GUIDS[@]}"; do
+    docker exec "$CONTAINER_NAME" rm -rf "/var/www/onlyoffice/documentserver/sdkjs-plugins/${old_guid}"
+done
 docker exec "$CONTAINER_NAME" rm -rf "$PLUGIN_TARGET_PATH"
 docker exec "$CONTAINER_NAME" mkdir -p "$PLUGIN_TARGET_PATH"
 

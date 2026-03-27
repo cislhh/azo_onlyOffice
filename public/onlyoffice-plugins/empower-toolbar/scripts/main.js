@@ -1,10 +1,10 @@
 (function (window) {
-  var PLUGIN_VERSION = "20260327.6";
+  var PLUGIN_VERSION = "20260327.8";
   var TOOLBAR_TAB_ID = "empower_tools_tab";
   var BUTTON_INSERT_STAMP_ID = "empower_insert_stamp";
   var TOOLBAR_ICON_PATH = "resources/icon.png";
   var FIXED_STAMP_WIDTH_EMU = 160 * 9525;
-  var FIXED_STAMP_HEIGHT_EMU = 64 * 9525;
+  var FIXED_STAMP_HEIGHT_EMU = 160 * 9525;
   var FIXED_STAMP_MARGIN_EMU = 8 * 36000;
   var MAX_IMAGE_SIZE = 5 * 1024 * 1024;
   var toolbarMounted = false;

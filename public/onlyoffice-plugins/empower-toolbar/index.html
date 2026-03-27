@@ -6,6 +6,7 @@
     <script type="text/javascript">
       (function () {
         var sdkBase = "https://onlyoffice.github.io/sdkjs-plugins/v1";
+        var cacheBuster = Date.now().toString();
 
         try {
           var referrerUrl = new URL(document.referrer);
@@ -31,7 +32,7 @@
 
         loadScript(sdkBase + "/plugins.js", function () {
           loadScript(sdkBase + "/plugins-ui.js", function () {
-            loadScript("scripts/main.js");
+            loadScript("scripts/main.js?v=" + encodeURIComponent(cacheBuster));
           });
         });
       })();

@@ -1,7 +1,7 @@
 # OnlyOffice 自定义工具栏插件接入手册
 
 本文对应仓库内新增插件：`public/onlyoffice-plugins/empower-toolbar`  
-插件 GUID：`asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF001}`
+插件 GUID：`asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}`
 
 ## 1. 已完成的代码改造
 
@@ -34,7 +34,7 @@ docker ps --filter "ancestor=onlyoffice/documentserver" --format "{{.Names}}"
 # 2) 拷贝插件目录到容器（目录名用 GUID 去掉 asc. 前缀）
 docker cp \
   /Users/azo/Work-EMPOWER/demo-office/public/onlyoffice-plugins/empower-toolbar \
-  <容器名>:/var/www/onlyoffice/documentserver/sdkjs-plugins/\{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF001\}
+  <容器名>:/var/www/onlyoffice/documentserver/sdkjs-plugins/\{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101\}
 
 # 3) 重启容器
 docker restart <容器名>
@@ -45,9 +45,9 @@ docker restart <容器名>
 在前端环境变量中增加（仅在需要走容器插件时）：
 
 ```bash
-VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL=http://<你的-docserver>/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF001}/config.json
+VITE_ONLYOFFICE_TOOLBAR_PLUGIN_URL=http://<你的-docserver>/sdkjs-plugins/{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}/config.json
 VITE_ONLYOFFICE_USE_REMOTE_TOOLBAR_PLUGIN=true
-VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.3
+VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.8
 ```
 
 说明：

@@ -37,6 +37,20 @@ export interface OnlyOfficeConfig {
     }
     customization?: {
       uiTheme?: OnlyOfficeUiTheme
+      features?: {
+        /**
+         * 拼写检查功能配置
+         * - boolean: 完全禁用或启用拼写检查（推荐）
+         * - object: 细粒度控制，仅支持 mode 属性
+         */
+        spellcheck?: boolean | {
+          /**
+           * 拼写检查模式
+           * 仅适用于文档编辑器和演示编辑器
+           */
+          mode?: boolean
+        }
+      }
     }
     user?: {
       id: string

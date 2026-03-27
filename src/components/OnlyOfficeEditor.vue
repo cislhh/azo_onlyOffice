@@ -46,6 +46,80 @@ const toolbarPluginRequestNonce = Date.now().toString(36)
 const toolbarPluginGuid = 'asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF101}'
 const toolbarPluginConfigPath = '/onlyoffice-plugins/empower-toolbar/config.json'
 
+// OnlyOffice localStorage 键名常量
+const ONLYOFFICE_STORAGE_PREFIXES = [
+  'asc-',        // OnlyOffice 前缀
+  'onlyoffice-', // 备用前缀
+  ''             // 无前缀（某些情况）
+] as const
+
+const SPELLCHECK_STORAGE_PATTERNS = [
+  'spellcheck',
+  'spelling',
+  'sc-enabled'
+] as const
+
+/**
+ * 清除 OnlyOffice 拼写检查相关的 localStorage
+ * 使用前缀匹配模式，确保清除所有相关键
+ */
+const clearSpellcheckCache = (): { cleared: number, errors: string[] } => {
+  const clearedKeys: string[] = []
+  const errors: string[] = []
+
+  try {
+    // 检查 localStorage 是否可用
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      errors.push('localStorage 不可用（可能在 SSR 环境）')
+      return { cleared: 0, errors }
+    }
+
+    // 测试写入权限（隐私模式检测）
+    const testKey = '__onlyoffice_storage_test__'
+    try {
+      localStorage.setItem(testKey, 'test')
+      localStorage.removeItem(testKey)
+    } catch (accessError) {
+      errors.push('localStorage 不可写（可能在隐私模式或被禁用）')
+      return { cleared: 0, errors }
+    }
+
+    // 扫描所有 localStorage 键，进行模糊匹配
+    const allKeys = Object.keys(localStorage)
+    for (const key of allKeys) {
+      const keyLower = key.toLowerCase()
+      // 匹配包含 spellcheck 或 spelling 的键
+      if (SPELLCHECK_STORAGE_PATTERNS.some(pattern =>
+        keyLower.includes(pattern) || keyLower.includes(pattern.replace('-', ''))
+      )) {
+        try {
+          localStorage.removeItem(key)
+          clearedKeys.push(key)
+        } catch (removeError) {
+          errors.push(`无法清除键 ${key}: ${removeError}`)
+        }
+      }
+    }
+
+    // 记录日志
+    if (clearedKeys.length > 0) {
+      logger.log(`✅ 已清除 ${clearedKeys.length} 个拼写检查缓存:`, clearedKeys)
+    } else {
+      logger.log('ℹ️ 未发现拼写检查缓存')
+    }
+
+    if (errors.length > 0) {
+      logger.warn('⚠️ 清除拼写检查缓存时发生错误:', errors)
+    }
+
+    return { cleared: clearedKeys.length, errors }
+  } catch (error) {
+    errors.push(`清除缓存时发生异常: ${error}`)
+    logger.error('清除拼写检查缓存失败:', error)
+    return { cleared: 0, errors }
+  }
+}
+
 const internalEditorId = computed(() => props.editorId || 'onlyoffice-editor')
 
 const toReachableUrl = (url?: string) => {
@@ -103,6 +177,9 @@ const toolbarPluginConfigUrl = computed(() => {
 })
 
 const config = computed<OnlyOfficeConfig | null>(() => {
+  // 在计算配置前先清除缓存
+  clearSpellcheckCache()
+
   if (!props.fileUrl) {
     return null
   }
@@ -135,7 +212,12 @@ const config = computed<OnlyOfficeConfig | null>(() => {
         pluginsData: [toolbarPluginConfigUrl.value]
       } : undefined,
       customization: {
-        uiTheme: props.uiTheme || 'theme-light'
+        uiTheme: props.uiTheme || 'theme-light',
+        features: {
+          // 使用布尔值形式，完全禁用拼写检查
+          // 这是推荐的方式，比对象形式 { mode: false } 更直接
+          spellcheck: false
+        }
       }
     }
   }

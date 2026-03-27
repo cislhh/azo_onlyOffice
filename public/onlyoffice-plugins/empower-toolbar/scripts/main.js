@@ -149,7 +149,13 @@
           }
         } catch (error) {}
       },
-      true
+      false,
+      true,
+      function () {
+        if (window.console && typeof window.console.log === "function") {
+          window.console.log("[empower-toolbar] stamp inserted");
+        }
+      }
     );
   }
 

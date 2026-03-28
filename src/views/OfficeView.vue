@@ -264,7 +264,7 @@ const onEditorError = (message: string) => {
             <label class="nav-button nav-button-upload">
               <input
                 type="file"
-                accept=".docx,.xlsx,.pptx"
+                accept=".docx,.pdf,.xlsx,.pptx"
                 :disabled="isUploading"
                 @change="onEditFileChange"
               />
@@ -364,7 +364,7 @@ const onEditorError = (message: string) => {
                 />
               </svg>
               <p class="empty-text">请选择文件开始编辑</p>
-              <p class="empty-hint">支持 .docx, .xlsx, .pptx 等格式</p>
+              <p class="empty-hint">支持 .docx, .pdf, .xlsx, .pptx 等格式</p>
             </div>
           </template>
 

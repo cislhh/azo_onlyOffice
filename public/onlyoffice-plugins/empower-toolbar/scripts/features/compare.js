@@ -14,18 +14,6 @@
     window.alert(message);
   }
 
-  function isWordEditor() {
-    try {
-      var info =
-        window.Asc && window.Asc.plugin && window.Asc.plugin.info
-          ? window.Asc.plugin.info
-          : null;
-      return !!info && info.editorType === "word";
-    } catch (error) {
-      return false;
-    }
-  }
-
   function validateDocxFile(file) {
     if (!file) return "请选择 docx 文档";
 
@@ -108,6 +96,12 @@
 
   var feature = {
     id: FEATURE_ID,
+    availability: {
+      modes: ["edit"],
+      fileTypes: ["docx"],
+      messageByMode: "当前工作模式不支持文档对比",
+      messageByFileType: "文档对比仅支持 .docx 格式",
+    },
     getToolbarItem: function (context) {
       return {
         id: FEATURE_ID,
@@ -125,11 +119,6 @@
       createFileInput();
     },
     onClick: function () {
-      if (!isWordEditor()) {
-        showMessage("文档对比仅支持 Word 文档");
-        return;
-      }
-
       openDocPicker();
     },
   };

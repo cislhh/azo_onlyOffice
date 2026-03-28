@@ -47,10 +47,13 @@ const toolbarPluginGuid = 'asc.{54F10D3B-BF9E-4D03-9E3D-A2EBB69CF102}'
 const toolbarPluginConfigPath = '/onlyoffice-plugins/empower-toolbar/config.json'
 const toolbarPluginMessageSource = 'empower-toolbar-plugin'
 const toolbarPluginCompareMessageType = 'empower-toolbar:compare-file-selected'
+const toolbarPluginRuntimeRequestType = 'empower-toolbar:request-runtime-context'
+const toolbarPluginRuntimeContextType = 'empower-toolbar:runtime-context'
 const pluginCompareMaxFileSize = Number(import.meta.env.VITE_MAX_FILE_SIZE) || 10 * 1024 * 1024
 
 const runtimeRevisedFile = ref<{ name: string, url: string } | null>(null)
 const isUploadingPluginCompareFile = ref(false)
+const currentEditorFileType = computed(() => getFileType(props.file?.name || props.fileUrl || ''))
 
 // OnlyOffice localStorage 键名常量
 const ONLYOFFICE_STORAGE_PREFIXES = [
@@ -383,16 +386,33 @@ const onToolbarPluginMessage = async (event: MessageEvent) => {
   if (!data || typeof data !== 'object') return
 
   const payload = data as Record<string, unknown>
-  if (
-    payload.source !== toolbarPluginMessageSource ||
-    payload.type !== toolbarPluginCompareMessageType
-  ) {
-    return
-  }
+  if (payload.source !== toolbarPluginMessageSource) return
 
   const allowedOrigins = getAllowedPluginMessageOrigins()
   if (event.origin && !allowedOrigins.has(event.origin)) {
     logger.warn('忽略来自未知来源的插件消息:', event.origin)
+    return
+  }
+
+  if (payload.type === toolbarPluginRuntimeRequestType) {
+    const sourceWindow = event.source as WindowProxy | null
+    if (sourceWindow && typeof sourceWindow.postMessage === 'function') {
+      sourceWindow.postMessage(
+        {
+          source: toolbarPluginMessageSource,
+          type: toolbarPluginRuntimeContextType,
+          context: {
+            mode: props.mode,
+            fileType: currentEditorFileType.value
+          }
+        },
+        event.origin || '*'
+      )
+    }
+    return
+  }
+
+  if (payload.type !== toolbarPluginCompareMessageType) {
     return
   }
 

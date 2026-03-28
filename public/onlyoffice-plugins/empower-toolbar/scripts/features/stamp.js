@@ -263,6 +263,12 @@
 
   var feature = {
     id: FEATURE_ID,
+    availability: {
+      modes: ["edit"],
+      fileTypes: ["docx", "pdf", "xlsx", "pptx"],
+      messageByMode: "当前工作模式不支持插入印章",
+      messageByFileType: "当前文档格式不支持插入印章",
+    },
     getToolbarItem: function (context) {
       return {
         id: FEATURE_ID,

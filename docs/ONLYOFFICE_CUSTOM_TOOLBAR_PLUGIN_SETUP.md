@@ -76,6 +76,25 @@ VITE_ONLYOFFICE_TOOLBAR_PLUGIN_VERSION=20260327.11
 
 新增功能时，直接新增 `scripts/features/<feature>.js` 并在 `index.html` 里按顺序加载即可。
 
+### 5.1 可用性配置（模式 + 文档格式）
+
+每个 feature 通过 `availability` 配置声明是否可用，`main.js` 统一校验：
+
+```js
+availability: {
+  modes: ["edit"],
+  fileTypes: ["docx"],
+  messageByMode: "当前工作模式不支持文档对比",
+  messageByFileType: "文档对比仅支持 .docx 格式"
+}
+```
+
+当前策略：
+
+- `插入印章`：仅 `edit` 模式；支持 `docx/pdf/xlsx/pptx`
+- `文档对比`：仅 `edit` 模式；仅支持 `docx`
+- `view` 模式：不注入业务工具插件
+
 ## 6. 常见坑：改了插件但页面还是旧版本
 
 如果你把插件放在 Document Server 的 `sdkjs-plugins` 目录里，可能出现“重启容器、无痕模式后仍是旧代码”。
